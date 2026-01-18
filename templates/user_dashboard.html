@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BioSecure | Advanced Forensics Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bg: "#020617",       // Deepest Void
+            panel: "#0b1221",    // Dark Blue Panel
+            surface: "#1e293b",  // Lighter Surface
+            primary: "#0ea5e9",  // Cyber Blue
+            secondary: "#6366f1",// Indigo
+            success: "#10b981",  // Emerald
+            danger: "#ef4444",   // Red
+            warning: "#f59e0b",  // Amber
+            muted: "#64748b"     // Slate
+          },
+          backgroundImage: {
+            'grid-pattern': "linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)",
+            'scan-gradient': "linear-gradient(180deg, transparent 0%, rgba(14, 165, 233, 0.2) 50%, rgba(14, 165, 233, 0.6) 100%)",
+          },
+          animation: {
+            'radar': 'radar 4s linear infinite',
+            'scan-down': 'scanDown 3s ease-in-out infinite',
+            'scan-line': 'scanLine 2s linear infinite',
+            'flicker': 'flicker 0.15s infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'spin-slow': 'spin 8s linear infinite',
+          },
+          keyframes: {
+            radar: {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' },
+            },
+            scanDown: {
+              '0%': { top: '-10%', opacity: '0' },
+              '10%': { opacity: '1' },
+              '90%': { opacity: '1' },
+              '100%': { top: '110%', opacity: '0' },
+            },
+            flicker: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.8' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Base Settings */
+    body {
+      background-color: #020617;
+      color: #cbd5e1;
+      overflow: hidden; /* Prevent scrolling, app-like feel */
+    }
+
+    /* CRT Scanline Effect Overlay */
+    .crt::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 50;
+      background-size: 100% 2px, 3px 100%;
+      pointer-events: none; /* Click through */
+    }
+
+    /* Grid Background */
+    .cyber-grid {
+      background-size: 40px 40px;
+      mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+      opacity: 0.1;
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: rgba(11, 18, 33, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    .glass-panel:hover {
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b; 
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0ea5e9; 
+    }
+
+    /* Dialog/Modal Styling */
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+    }
+    dialog {
+      background: transparent;
+      border: none;
+      padding: 0;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: visible;
+    }
+  </style>
+</head>
+
+<body class="crt flex flex-col h-screen w-screen selection:bg-primary selection:text-black">
+
+  <header class="h-16 flex-none bg-panel/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-6 z-40 relative">
+    <div class="flex items-center gap-3">
+      <div class="relative w-8 h-8 flex items-center justify-center">
+        <div class="absolute inset-0 bg-primary/20 rounded blur animate-pulse"></div>
+        <div class="relative w-full h-full bg-gradient-to-br from-primary to-blue-700 rounded flex items-center justify-center text-black font-bold font-mono text-sm border border-primary">B</div>
+      </div>
+      <div>
+        <h1 class="font-bold text-white tracking-wider text-lg leading-none">Bio<span class="text-primary">Secure</span></h1>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <p class="text-[10px] text-slate-500 font-mono tracking-[0.2em] uppercase">System Online</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-6">
+      <div class="hidden md:flex gap-6 font-mono text-[10px] text-muted border-r border-white/10 pr-6">
+        <div class="text-right">
+          <span class="block text-primary">CPU_LOAD</span>
+          <span class="text-slate-300">12%</span>
+        </div>
+        <div class="text-right">
+          <span class="block text-primary">MEMORY</span>
+          <span class="text-slate-300">4.2GB</span>
+        </div>
+        <div class="text-right">
+          <span class="block text-primary">LATENCY</span>
+          <span class="text-slate-300">24ms</span>
+        </div>
+      </div>
+
+      <a href="/logout" class="group flex items-center gap-2 text-xs font-mono text-slate-400 hover:text-danger transition-colors">
+        <span class="group-hover:translate-x-1 transition-transform">[ LOGOUT_SESSION ]</span>
+        <i data-lucide="log-out" class="w-4 h-4"></i>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-grow flex flex-col lg:flex-row h-full overflow-hidden p-4 md:p-6 gap-6 relative z-10">
+    <div class="cyber-grid bg-grid-pattern"></div>
+
+    <section class="lg:w-5/12 flex flex-col gap-6 h-full">
+      <div class="glass-panel flex-grow rounded-xl p-1 relative flex flex-col overflow-hidden group transition-all duration-500">
+        
+        <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-30 bg-gradient-to-b from-black/90 to-transparent">
+          <span class="text-xs font-mono text-primary font-bold flex items-center gap-2">
+            <i data-lucide="scan-face" class="w-4 h-4"></i> OPTICAL_SENSOR
+          </span>
+          <div id="scannerBadge" class="flex items-center gap-2 px-2 py-1 bg-slate-900/80 rounded border border-slate-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+            <span class="text-[9px] font-mono text-slate-400 uppercase tracking-widest">IDLE</span>
+          </div>
+        </div>
+
+        <div class="relative w-full h-full bg-black/40 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer border border-dashed border-slate-800 hover:border-primary/50 transition-all duration-300" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*" class="hidden" />
+          
+          <div id="idleVisual" class="text-center z-20 pointer-events-none transition-transform duration-500 group-hover:scale-105">
+            <div class="relative w-32 h-32 mx-auto mb-6">
+              <div class="absolute inset-0 rounded-full border border-slate-700 opacity-20 animate-ping"></div>
+              <div class="absolute inset-2 rounded-full border border-slate-600 opacity-40"></div>
+              <div class="absolute inset-0 rounded-full border-t-2 border-primary animate-spin-slow"></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <i data-lucide="fingerprint" class="w-16 h-16 text-slate-500 group-hover:text-primary transition-colors duration-300"></i>
+              </div>
+            </div>
+            <h3 class="text-slate-200 font-mono tracking-wide text-sm">INITIALIZE SCAN</h3>
+            <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">Drag Specimen / Click to Browse</p>
+          </div>
+
+          <img id="scanPreview" class="absolute inset-0 w-full h-full object-contain p-4 hidden z-10 opacity-60 transition-opacity duration-500" />
+          
+          <div id="scanOverlay" class="absolute inset-0 z-20 hidden pointer-events-none">
+             <div class="absolute inset-0 bg-[url('https://assets.codepen.io/13471/grid.png')] opacity-20"></div>
+             <div class="absolute w-full h-24 bg-scan-gradient shadow-[0_0_30px_#0ea5e9] animate-scan-down border-b-2 border-primary/50"></div>
+             <div class="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-primary"></div>
+             <div class="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-primary"></div>
+             <div class="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-primary"></div>
+             <div class="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-primary"></div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-panel/50 border-t border-white/5 flex gap-3 z-30">
+          <button id="resetBtn" class="px-5 py-3 rounded bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition font-mono text-xs tracking-wider">
+            RESET
+          </button>
+          <button id="scanBtn" class="flex-1 relative overflow-hidden rounded bg-primary/90 hover:bg-primary text-black font-bold transition shadow-[0_0_20px_rgba(14,165,233,0.1)] group/btn">
+             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
+             <div class="flex items-center justify-center gap-3 py-3">
+               <i data-lucide="search" class="w-4 h-4"></i>
+               <span class="font-mono text-xs tracking-widest">INITIATE_MATCH_PROTOCOL</span>
+             </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="lg:w-7/12 flex flex-col gap-6 h-full overflow-hidden">
+      
+      <div class="glass-panel flex-1 rounded-xl p-8 relative flex flex-col overflow-hidden">
+        
+        <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+          <i data-lucide="binary" class="w-32 h-32 text-primary"></i>
+        </div>
+
+        <div id="stateWaiting" class="h-full flex flex-col items-center justify-center space-y-6 opacity-60">
+           <div class="w-20 h-20 border-2 border-slate-800 border-t-slate-500 rounded-full animate-spin"></div>
+           <p class="font-mono text-xs tracking-[0.3em] text-slate-500">AWAITING INPUT SOURCE</p>
+        </div>
+
+        <div id="stateProcessing" class="hidden h-full flex flex-col justify-center max-w-lg mx-auto w-full z-20">
+           <div class="mb-8">
+             <div class="flex justify-between text-[10px] font-mono text-primary mb-2">
+               <span id="processStage">INITIALIZING KERNEL...</span>
+               <span id="processPercent">0%</span>
+             </div>
+             <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+               <div id="progressBar" class="h-full bg-primary shadow-[0_0_10px_#0ea5e9] transition-all duration-300" style="width: 0%"></div>
+             </div>
+           </div>
+
+           <div class="grid grid-cols-2 gap-4 text-[10px] font-mono text-slate-500 mb-8">
+              <div class="bg-black/20 p-2 rounded border border-white/5">
+                <span class="block text-slate-400 mb-1">ALGORITHM</span>
+                <span class="text-primary">SIFT_RANSAC_v4.2</span>
+              </div>
+              <div class="bg-black/20 p-2 rounded border border-white/5">
+                <span class="block text-slate-400 mb-1">DATABASE_SHARDS</span>
+                <span class="text-primary animate-pulse">SEARCHING...</span>
+              </div>
+              <div class="bg-black/20 p-2 rounded border border-white/5">
+                <span class="block text-slate-400 mb-1">HOMOGRAPHY</span>
+                <span id="homographyVal" class="text-slate-300">--</span>
+              </div>
+              <div class="bg-black/20 p-2 rounded border border-white/5">
+                <span class="block text-slate-400 mb-1">KEYPOINTS</span>
+                <span id="keypointCount" class="text-slate-300">--</span>
+              </div>
+           </div>
+
+           <div class="text-center">
+             <p class="text-xs text-slate-400 animate-pulse font-mono">PLEASE WAIT. FORENSIC ANALYSIS IS COMPUTATIONALLY EXPENSIVE.</p>
+           </div>
+        </div>
+
+        <div id="stateResult" class="hidden h-full flex flex-col w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+           
+           <div class="flex border-b border-white/10 mb-6">
+              <button onclick="switchTab('tabData')" id="btnTabData" class="px-6 py-2 text-xs font-mono border-b-2 border-primary text-white hover:bg-white/5 transition">
+                <i data-lucide="file-text" class="inline w-3 h-3 mr-2"></i>REPORT
+              </button>
+              <button onclick="switchTab('tabVisual')" id="btnTabVisual" class="px-6 py-2 text-xs font-mono border-b-2 border-transparent text-slate-500 hover:text-white hover:bg-white/5 transition">
+                <i data-lucide="eye" class="inline w-3 h-3 mr-2"></i>SPECTRAL_VIEW
+              </button>
+           </div>
+
+           <div id="tabData" class="flex-1">
+             <div id="resultBanner" class="w-full p-5 rounded border bg-opacity-20 flex items-center justify-between mb-8">
+                <div class="flex items-center gap-5">
+                   <div id="resultIcon" class="p-3 rounded-full bg-black/40 border border-white/10"></div>
+                   <div>
+                      <h2 id="resultTitle" class="text-xl font-bold font-mono tracking-wider"></h2>
+                      <p id="resultDesc" class="text-xs text-slate-400 font-mono mt-1"></p>
+                   </div>
+                </div>
+                <div class="text-right">
+                   <p class="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Similarity Score</p>
+                   <p id="resultScore" class="text-3xl font-bold font-mono tracking-tighter"></p>
+                </div>
+             </div>
+
+             <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-black/30 rounded border border-white/5">
+                   <label class="text-[10px] text-slate-500 font-mono uppercase">Identity</label>
+                   <p id="resultName" class="text-lg text-white font-mono mt-1">--</p>
+                </div>
+                <div class="p-4 bg-black/30 rounded border border-white/5">
+                   <label class="text-[10px] text-slate-500 font-mono uppercase">Record ID</label>
+                   <p id="resultId" class="text-lg text-white font-mono mt-1">--</p>
+                </div>
+             </div>
+           </div>
+
+           <div id="tabVisual" class="hidden flex-1 relative flex flex-col items-center justify-center bg-black/40 rounded border border-white/5 p-4 overflow-hidden">
+              <div class="absolute inset-0 grid-pattern opacity-10"></div>
+              
+              <div id="visualPlaceholder" class="text-center">
+                 <p class="text-xs font-mono text-slate-500 mb-2">GENERATING VISUAL PROOF...</p>
+                 <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+              </div>
+
+              <div id="visualContainer" class="hidden w-full h-full relative group cursor-pointer" onclick="openModal()">
+                  <img id="matchVisualImage" class="w-full h-full object-contain" />
+                  
+                  <div class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
+                      <button class="px-6 py-3 bg-primary text-black font-bold font-mono text-sm tracking-widest rounded shadow-[0_0_20px_#0ea5e9]">
+                          EXPAND FULL VIEW <i data-lucide="maximize-2" class="inline w-4 h-4 ml-2"></i>
+                      </button>
+                  </div>
+              </div>
+              
+              <div class="absolute bottom-4 left-4 bg-black/80 px-2 py-1 border border-primary/30 text-[9px] text-primary font-mono">
+                 FEATURE_MAPPING::ACTIVE
+              </div>
+           </div>
+        </div>
+      </div>
+
+      <div class="glass-panel h-48 rounded-xl p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-2 border-b border-white/5 pb-2">
+          <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <i data-lucide="terminal" class="w-3 h-3"></i> SYSTEM_LOG
+          </h3>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
+        
+        <div id="logTerminal" class="flex-1 overflow-y-auto font-mono text-[10px] space-y-1 p-2 bg-black/50 rounded border border-white/5 text-slate-400 font-medium">
+           <div><span class="text-slate-600">--:--:--</span> <span class="text-primary">System initialized. Waiting for sensor input...</span></div>
+        </div>
+      </div>
+      
+      <footer class="w-full py-6 mt-2 border-t border-slate-800 bg-slate-950/50 backdrop-blur-sm text-center">
+          <p class="text-slate-500 text-sm font-mono">
+              &copy; 2026 BioSecure Forensic System. All Rights Reserved.
+              <span class="hidden md:inline mx-2 text-slate-700">|</span>
+              <br class="md:hidden">
+              Developed by 
+              <a href="https://portfolio-app.netlify.app/" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="text-emerald-400 hover:text-emerald-300 transition-colors font-bold tracking-wide hover:underline decoration-emerald-500/50 underline-offset-4">
+                  Deva Veera Kumaran
+              </a>
+          </p>
+      </footer>
+    </section>
+  </main>
+
+  <dialog id="spectralModal" class="bg-transparent p-0 open:animate-in open:fade-in open:zoom-in-95 duration-200 backdrop:bg-black/90 backdrop:backdrop-blur-sm">
+      <div class="relative w-[90vw] h-[85vh] bg-slate-950 border border-slate-700 rounded-lg overflow-hidden shadow-2xl flex flex-col">
+          <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900">
+              <h3 class="text-primary font-mono tracking-widest text-lg">SPECTRAL ANALYSIS VISUALIZATION</h3>
+              <button onclick="closeModal()" class="text-slate-400 hover:text-white transition">
+                  <i data-lucide="x" class="w-6 h-6"></i>
+              </button>
+          </div>
+          
+          <div class="flex-1 bg-black/50 p-4 overflow-hidden relative flex items-center justify-center">
+              <div class="absolute inset-0 cyber-grid opacity-20"></div>
+              <img id="modalImage" src="" class="max-w-full max-h-full object-contain shadow-[0_0_30px_rgba(14,165,233,0.2)]" />
+          </div>
+
+          <div class="p-3 bg-slate-900 border-t border-slate-800 flex justify-between items-center font-mono text-xs text-slate-500">
+              <span>MODE: RANSAC_HOMOGRAPHY_VISUALIZER</span>
+              <span>ZOOM: FIT_TO_SCREEN</span>
+          </div>
+      </div>
+  </dialog>
+
+  <script>
+    lucide.createIcons();
+    
+    // --- DOM Elements ---
+    const elements = {
+      dropZone: document.getElementById("dropZone"),
+      fileInput: document.getElementById("fileInput"),
+      scanPreview: document.getElementById("scanPreview"),
+      idleVisual: document.getElementById("idleVisual"),
+      scanOverlay: document.getElementById("scanOverlay"),
+      scannerBadge: document.getElementById("scannerBadge"),
+      
+      stateWaiting: document.getElementById("stateWaiting"),
+      stateProcessing: document.getElementById("stateProcessing"),
+      stateResult: document.getElementById("stateResult"),
+      
+      logTerminal: document.getElementById("logTerminal"),
+      progressBar: document.getElementById("progressBar"),
+      processStage: document.getElementById("processStage"),
+      processPercent: document.getElementById("processPercent"),
+      homographyVal: document.getElementById("homographyVal"),
+      keypointCount: document.getElementById("keypointCount"),
+      
+      visualContainer: document.getElementById("visualContainer"),
+      matchVisualImage: document.getElementById("matchVisualImage"),
+      visualPlaceholder: document.getElementById("visualPlaceholder"),
+
+      modal: document.getElementById("spectralModal"),
+      modalImage: document.getElementById("modalImage")
+    };
+
+    // --- State Variables ---
+    let isProcessing = false;
+    let processingTimer = null;
+    let logInterval = null;
+
+    // --- Boot Sequence on Load ---
+    window.addEventListener('load', () => {
+       addLog("Kernel loaded.", "success");
+       setTimeout(() => addLog("Connecting to Database Shards [MongoDB]...", "warning"), 500);
+       setTimeout(() => addLog("Forensic Engine v4.2 Ready.", "success"), 1200);
+    });
+
+    // --- Modal Logic ---
+    window.openModal = function() {
+        if(elements.matchVisualImage.src) {
+            elements.modalImage.src = elements.matchVisualImage.src;
+            elements.modal.showModal();
+        }
+    }
+
+    window.closeModal = function() {
+        elements.modal.close();
+    }
+
+    // Close modal when clicking outside
+    elements.modal.addEventListener("click", (e) => {
+        const rect = elements.modal.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right || 
+            e.clientY < rect.top || e.clientY > rect.bottom) {
+            elements.modal.close();
+        }
+    });
+
+    // --- File Handling ---
+    elements.dropZone.addEventListener("click", () => elements.fileInput.click());
+    elements.fileInput.addEventListener("change", handleFileSelect);
+    
+    // Drag & Drop
+    elements.dropZone.addEventListener("dragover", (e) => { e.preventDefault(); elements.dropZone.classList.add("border-primary"); });
+    elements.dropZone.addEventListener("dragleave", (e) => { e.preventDefault(); elements.dropZone.classList.remove("border-primary"); });
+    elements.dropZone.addEventListener("drop", (e) => {
+       e.preventDefault();
+       elements.dropZone.classList.remove("border-primary");
+       if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFileSelect(e) {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        elements.scanPreview.src = e.target.result;
+        elements.scanPreview.classList.remove("hidden");
+        elements.idleVisual.classList.add("hidden");
+        
+        resetUI();
+        addLog(`Image buffer loaded: ${(file.size/1024).toFixed(2)} KB`);
+        updateBadge("READY", "bg-emerald-500/20 text-emerald-400 border-emerald-500/50");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetUI() {
+      elements.stateWaiting.classList.remove("hidden");
+      elements.stateProcessing.classList.add("hidden");
+      elements.stateResult.classList.add("hidden");
+      switchTab('tabData'); 
+    }
+
+    // --- Reset Button ---
+    document.getElementById("resetBtn").addEventListener("click", () => {
+       elements.fileInput.value = "";
+       elements.scanPreview.classList.add("hidden");
+       elements.idleVisual.classList.remove("hidden");
+       elements.matchVisualImage.src = "";
+       resetUI();
+       updateBadge("IDLE", "bg-slate-900 px-2 py-1 rounded text-slate-400 border border-slate-700");
+       addLog("Session reset. Memory flushed.");
+    });
+
+    // --- BADGE HELPER ---
+    function updateBadge(text, classes) {
+       const badge = elements.scannerBadge;
+       badge.className = `flex items-center gap-2 px-2 py-1 rounded border uppercase ${classes}`;
+       badge.querySelector("span:last-child").innerText = text;
+       badge.querySelector("span:first-child").className = `w-1.5 h-1.5 rounded-full ${text === 'SCANNING' ? 'bg-amber-400 animate-pulse' : (text === 'READY' ? 'bg-emerald-400' : 'bg-slate-500')}`;
+    }
+
+    // --- TAB SWITCHER ---
+    window.switchTab = function(tabId) {
+       document.getElementById('tabData').classList.add('hidden');
+       document.getElementById('tabVisual').classList.add('hidden');
+       document.getElementById('btnTabData').classList.replace('border-primary','border-transparent');
+       document.getElementById('btnTabData').classList.replace('text-white','text-slate-500');
+       document.getElementById('btnTabVisual').classList.replace('border-primary','border-transparent');
+       document.getElementById('btnTabVisual').classList.replace('text-white','text-slate-500');
+       
+       document.getElementById(tabId).classList.remove('hidden');
+       const btn = tabId === 'tabData' ? 'btnTabData' : 'btnTabVisual';
+       document.getElementById(btn).classList.replace('border-transparent','border-primary');
+       document.getElementById(btn).classList.replace('text-slate-500','text-white');
+    }
+
+    // --- MAIN LOGIC: THE 60 SECOND SCAN ---
+    document.getElementById("scanBtn").addEventListener("click", async () => {
+       const file = elements.fileInput.files[0] || (elements.scanPreview.src.startsWith('data') ? dataURLtoFile(elements.scanPreview.src, 'scan.png') : null);
+       
+       if (!file) {
+          alert("ERROR: No input source detected.");
+          return;
+       }
+
+       startProcessingAnimation();
+       
+       const formData = new FormData();
+       formData.append("image", file);
+
+       try {
+          const res = await fetch("/api/match", { method: "POST", body: formData });
+          const data = await res.json();
+          completeProcessing(data);
+
+       } catch (err) {
+          console.error(err);
+          stopProcessing();
+          addLog("CRITICAL ERROR: Connection lost.", "error");
+          alert("System Error: Check console.");
+       }
+    });
+
+    // --- ANIMATION CONTROLLER ---
+    function startProcessingAnimation() {
+       isProcessing = true;
+       elements.stateWaiting.classList.add("hidden");
+       elements.stateResult.classList.add("hidden");
+       elements.stateProcessing.classList.remove("hidden");
+       elements.scanOverlay.classList.remove("hidden");
+       updateBadge("SCANNING", "bg-amber-500/10 text-amber-400 border-amber-500/30");
+
+       let progress = 0;
+       elements.progressBar.style.width = "0%";
+       
+       processingTimer = setInterval(() => {
+          if (progress >= 95) return; 
+          progress += Math.random() * 2; 
+          elements.progressBar.style.width = `${Math.min(progress, 95)}%`;
+          elements.processPercent.innerText = `${Math.floor(progress)}%`;
+          elements.homographyVal.innerText = (Math.random() * 10).toFixed(4);
+          elements.keypointCount.innerText = Math.floor(Math.random() * 5000);
+       }, 800);
+
+       const phrases = [
+         "Extracting SIFT descriptors...",
+         "Normalizing histogram...",
+         "Applying CLAHE contrast enhancement...",
+         "Querying vector database shard 01...",
+         "Querying vector database shard 02...",
+         "RANSAC geometric verification...",
+         "Outlier rejection loop...",
+         "Calculating Homography matrix...",
+         "Optimizing nearest neighbor search...",
+         "Decrypting biometric headers..."
+       ];
+       
+       let phraseIndex = 0;
+       logInterval = setInterval(() => {
+          if(phraseIndex < phrases.length) {
+             addLog(phrases[phraseIndex]);
+             phraseIndex = (phraseIndex + 1) % phrases.length;
+          }
+       }, 3000);
+    }
+
+    function stopProcessing() {
+       clearInterval(processingTimer);
+       clearInterval(logInterval);
+       elements.scanOverlay.classList.add("hidden");
+       elements.stateProcessing.classList.add("hidden");
+    }
+
+    function completeProcessing(data) {
+       elements.progressBar.style.width = "100%";
+       elements.processPercent.innerText = "100%";
+       
+       setTimeout(() => {
+          stopProcessing();
+          elements.stateResult.classList.remove("hidden");
+          updateBadge("COMPLETE", "bg-slate-800 text-slate-300 border-slate-700");
+          renderResult(data);
+       }, 800);
+    }
+
+  function renderResult(data) {
+       const banner = document.getElementById("resultBanner");
+       const icon = document.getElementById("resultIcon");
+       
+       elements.matchVisualImage.style.filter = "none"; 
+       
+       if (data.success && data.match) {
+          banner.className = "w-full p-5 rounded border flex items-center justify-between mb-8 bg-emerald-950/40 border-emerald-500/50 text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.1)]";
+          icon.innerHTML = `<i data-lucide="check-circle" class="w-8 h-8 text-emerald-400"></i>`;
+          icon.className = "p-3 rounded-full bg-emerald-900/50 border border-emerald-500/30";
+          
+          document.getElementById("resultTitle").innerText = "POSITIVE MATCH";
+          document.getElementById("resultTitle").className = "text-xl font-bold font-mono tracking-wider text-emerald-400";
+          document.getElementById("resultDesc").innerText = "Biometric signatures aligned with stored record.";
+          
+          document.getElementById("resultScore").innerText = Math.round(data.score) + "%";
+          document.getElementById("resultScore").className = "text-3xl font-bold font-mono tracking-tighter text-emerald-400 shadow-emerald-400/20 drop-shadow-lg";
+          
+          document.getElementById("resultName").innerText = data.identity;
+          document.getElementById("resultId").innerText = "REC-" + Math.floor(Math.random()*100000);
+          
+          addLog(`IDENTITY VERIFIED: ${data.identity}`, "success");
+          
+          // --- VISUALIZATION LOGIC ---
+          elements.visualPlaceholder.classList.add('hidden');
+          elements.visualContainer.classList.remove('hidden');
+
+          if (data.visual_url) {
+             elements.matchVisualImage.src = data.visual_url;
+             elements.matchVisualImage.style.filter = "none";
+             addLog("Visual proof downloaded from server.", "success");
+          } else {
+             elements.matchVisualImage.src = elements.scanPreview.src;
+             elements.matchVisualImage.style.filter = "contrast(1.5) sepia(1) hue-rotate(90deg) drop-shadow(0 0 5px #0ea5e9)";
+             addLog("Visual proof generation unavailable for this record.", "warning");
+          }
+
+       } else {
+          banner.className = "w-full p-5 rounded border flex items-center justify-between mb-8 bg-red-950/40 border-red-500/50 text-red-100 shadow-[0_0_30px_rgba(239,68,68,0.1)]";
+          icon.innerHTML = `<i data-lucide="shield-alert" class="w-8 h-8 text-red-400"></i>`;
+          icon.className = "p-3 rounded-full bg-red-900/50 border border-red-500/30";
+          
+          document.getElementById("resultTitle").innerText = "NO MATCH FOUND";
+          document.getElementById("resultTitle").className = "text-xl font-bold font-mono tracking-wider text-red-400";
+          document.getElementById("resultDesc").innerText = "Subject not found in enrollment database.";
+          
+          document.getElementById("resultScore").innerText = (data.score || 0) + "%";
+          document.getElementById("resultScore").className = "text-3xl font-bold font-mono tracking-tighter text-red-400";
+          
+          document.getElementById("resultName").innerText = "UNKNOWN";
+          document.getElementById("resultId").innerText = "N/A";
+          
+          addLog("ACCESS DENIED: No correlation found.", "error");
+
+          elements.visualPlaceholder.classList.add('hidden');
+          elements.visualContainer.classList.remove('hidden');
+          elements.matchVisualImage.src = elements.scanPreview.src; 
+          elements.matchVisualImage.style.filter = "grayscale(100%) opacity(0.5)";
+       }
+       lucide.createIcons();
+    }
+
+    function addLog(msg, type="info") {
+       const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+       let color = "text-slate-400";
+       if(type === "success") color = "text-emerald-400";
+       if(type === "error") color = "text-red-400";
+       if(type === "warning") color = "text-amber-400";
+       
+       const entry = `<div class="animate-in fade-in slide-in-from-left-2 duration-300 border-l-2 ${type === 'info' ? 'border-slate-800' : (type==='success'?'border-emerald-500':'border-red-500')} pl-2 mb-1">
+          <span class="text-slate-600 font-mono text-[9px] mr-2">[${time}]</span> 
+          <span class="${color}">${msg}</span>
+       </div>`;
+       elements.logTerminal.innerHTML = entry + elements.logTerminal.innerHTML;
+    }
+
+    function dataURLtoFile(dataurl, filename) {
+        let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+        while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+        return new File([u8arr], filename, {type:mime});
+    }
+  </script>
+</body>
+</html>
